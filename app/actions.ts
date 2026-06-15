@@ -153,6 +153,8 @@ const settingsSchema = z.object({
 })
 
 export async function deleteBet(formData: FormData): Promise<void> {
+  if (!checkPass(formData)) return
+
   const betId = String(formData.get('bet_id') ?? '')
   if (!betId) return
 

@@ -41,6 +41,8 @@ export function Leaderboard({
 
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approvePass, setApprovePass] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletePass, setDeletePass] = useState('')
 
   if (bets.length === 0) {
     return (
@@ -185,15 +187,44 @@ export function Leaderboard({
                       Approve
                     </button>
                   ) : null}
-                  <form action={deleteBet} className="flex gap-1">
-                    <input type="hidden" name="bet_id" value={b.id} />
+                  {deletingId === b.id ? (
+                    <form action={deleteBet} className="flex gap-1">
+                      <input type="hidden" name="bet_id" value={b.id} />
+                      <input
+                        type="password"
+                        name="passphrase"
+                        placeholder="pass"
+                        value={deletePass}
+                        onChange={(e) => setDeletePass(e.target.value)}
+                        className="field !w-20 !px-2 !py-1 text-[0.65rem]"
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        className="btn text-[0.65rem] px-2 py-1 !bg-coral/10 !text-coral hover:!bg-coral/20"
+                      >
+                        OK
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeletingId(null)
+                          setDeletePass('')
+                        }}
+                        className="btn text-[0.65rem] px-2 py-1 !bg-muted/10 !text-muted hover:!bg-muted/20"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={() => setDeletingId(b.id)}
                       className="btn text-[0.65rem] px-2 py-1 !bg-coral/10 !text-coral hover:!bg-coral/20"
                     >
                       Delete
                     </button>
-                  </form>
+                  )}
                 </div>
               )}
             </div>
