@@ -177,3 +177,144 @@ export function projectFromTraining(
   const marathonMiles = marathonDistance / 1609.34
   return analysis.estimatedMarathonPace * marathonMiles
 }
+
+export interface PaceAnalysis {
+  // Pace data
+  paces: { date: string; pace: number; miles: number; type: RunType }[]
+  recentTrendPaces: number[] // last 7 days paces
+  olderTrendPaces: number[] // 8-30 days paces
+  trendDirection: 'improving' | 'declining' | 'stable' // pace is getting faster/slower
+  fastestSustainablePace: number // critical speed from recent hard efforts
+  longRunPace: number // average pace of long runs (race-specific)
+  thresholdPace: number // average tempo pace (critical effort)
+
+  // Metadata
+  paceConsistency: number // 0-1, how consistent are they running
+  recentVolume: number // miles in last 7 days
+  volumeTrend: 'increasing' | 'decreasing' | 'stable'
+  trainingStress: number // 0-100, how hard they've been training
+
+  // Prediction components
+  components: {
+    thresholdBased: number // marathon prediction from threshold pace
+    criticalSpeedBased: number // prediction from critical speed
+    longRunBased: number // prediction from long run pace (conservative)
+    trendAdjustment: number // adjustment based on improving/declining trend
+  }
+
+  finalPrediction: number // actual marathon seconds prediction
+}
+
+/** Sophisticated race prediction analyzing recent pace data. */
+export function analyzePaceForRacePrediction(
+  activities: Activity[],
+  marathonDistance: number = 42195,
+  now = new Date(),
+): PaceAnalysis | null {
+  const dayMs = 86_400_000
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * dayMs)
+  const sevenDaysAgo = new Date(now.getTime() - 7 * dayMs)
+
+  const recent30 = activities.filter((a) => {
+    const d = new Date(a.activity_date)
+    return d >= thirtyDaysAgo && d <= now
+  })
+
+  if (recent30.length === 0) return null
+
+  // Extract pace data with dates
+  const paceData = recent30.map((a) => ({
+    date: a.activity_date,
+    pace: paceSecPerMile(a.distance_m, a.moving_time_s),
+    miles: metersToMiles(a.distance_m),
+    type: classifyRun(a).type,
+  }))
+
+  // Split into recent and older periods
+  const recentPaces = paceData.filter((p) => new Date(p.date) >= sevenDaysAgo).map((p) => p.pace)
+  const olderPaces = paceData.filter((p) => new Date(p.date) < sevenDaysAgo).map((p) => p.pace)
+
+  // Calculate trend
+  const recentAvg = recentPaces.length > 0 ? recentPaces.reduce((a, b) => a + b) / recentPaces.length : 0
+  const olderAvg = olderPaces.length > 0 ? olderPaces.reduce((a, b) => a + b) / olderPaces.length : 0
+  const trendDiff = olderAvg - recentAvg // positive = faster/improving
+  const trendDirection: 'improving' | 'declining' | 'stable' =
+    trendDiff > 10 ? 'improving' : trendDiff < -10 ? 'declining' : 'stable'
+
+  // Find fastest sustainable pace (hard efforts: tempo/interval)
+  const hardEfforts = paceData.filter((p) => p.type === 'tempo' || p.type === 'interval')
+  const fastestSustainable = hardEfforts.length > 0 ? Math.min(...hardEfforts.map((p) => p.pace)) : recentAvg
+
+  // Long run pace
+  const longRuns = paceData.filter((p) => p.type === 'long' && p.miles >= 10)
+  const longRunPace = longRuns.length > 0 ? longRuns.reduce((s, p) => s + p.pace, 0) / longRuns.length : recentAvg
+
+  // Threshold pace (tempo runs are closest to race effort)
+  const tempoRuns = paceData.filter((p) => p.type === 'tempo')
+  const thresholdPace = tempoRuns.length > 0 ? tempoRuns.reduce((s, p) => s + p.pace, 0) / tempoRuns.length : fastestSustainable
+
+  // Pace consistency (std dev)
+  const allPaces = paceData.map((p) => p.pace)
+  const meanPace = allPaces.reduce((a, b) => a + b) / allPaces.length
+  const variance = allPaces.reduce((s, p) => s + Math.pow(p - meanPace, 2), 0) / allPaces.length
+  const stdDev = Math.sqrt(variance)
+  const consistency = Math.max(0, Math.min(1, 1 - stdDev / meanPace)) // 0-1
+
+  // Recent volume
+  const recentVolume = paceData
+    .filter((p) => new Date(p.date) >= sevenDaysAgo)
+    .reduce((s, p) => s + p.miles, 0)
+
+  // Volume trend
+  const recentVol = paceData.filter((p) => new Date(p.date) >= sevenDaysAgo).reduce((s, p) => s + p.miles, 0)
+  const olderVol = paceData.filter((p) => new Date(p.date) < sevenDaysAgo).reduce((s, p) => s + p.miles, 0)
+  const volumeTrend: 'increasing' | 'decreasing' | 'stable' =
+    recentVol > olderVol * 1.1 ? 'increasing' : recentVol < olderVol * 0.9 ? 'decreasing' : 'stable'
+
+  // Training stress (intensity-weighted volume)
+  const stressScore = paceData.reduce((s, p) => {
+    const intensity = classifyRun({ distance_m: 0, moving_time_s: 0, name: '', activity_date: '', source: '', id: '', race_id: null, external_id: null, created_at: '' }, p.pace).intensity
+    return s + (p.miles * intensity / 100)
+  }, 0)
+  const trainingStress = Math.min(100, (stressScore / (paceData.length || 1)) * 10)
+
+  // Calculate marathon prediction components
+  const marathonMiles = marathonDistance / 1609.34
+
+  // 1. Threshold-based: tempo pace is close to marathon pace, use as base
+  const thresholdBased = thresholdPace * marathonMiles * 1.05 // 5% slower than tempo pace for 42.2 miles
+
+  // 2. Critical speed based: fastest sustainable pace, more conservative for marathon
+  const criticalSpeedBased = fastestSustainable * marathonMiles * 1.08 // 8% slower
+
+  // 3. Long run based: most conservative estimate from long run pace
+  const longRunBased = longRunPace * marathonMiles * 1.02 // only 2% slower (already trained distance)
+
+  // 4. Trend adjustment: if improving, be optimistic; if declining, be conservative
+  const trendMultiplier = trendDirection === 'improving' ? 0.98 : trendDirection === 'declining' ? 1.02 : 1.0
+  const trendAdjustment = (thresholdBased + criticalSpeedBased) / 2 * (trendMultiplier - 1)
+
+  // Final prediction: weighted average, favoring threshold-based estimate
+  const finalPrediction = thresholdBased * 0.45 + criticalSpeedBased * 0.35 + longRunBased * 0.15 + trendAdjustment * 0.05
+
+  return {
+    paces: paceData,
+    recentTrendPaces: recentPaces,
+    olderTrendPaces: olderPaces,
+    trendDirection,
+    fastestSustainablePace: fastestSustainable,
+    longRunPace,
+    thresholdPace,
+    paceConsistency: consistency,
+    recentVolume,
+    volumeTrend,
+    trainingStress,
+    components: {
+      thresholdBased,
+      criticalSpeedBased,
+      longRunBased,
+      trendAdjustment,
+    },
+    finalPrediction,
+  }
+}

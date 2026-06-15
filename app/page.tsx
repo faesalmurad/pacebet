@@ -9,7 +9,7 @@ import {
   daysUntil,
 } from "@/lib/format";
 import { getProjectionHistory } from "@/lib/snapshots";
-import { analyze30Days, projectFromTraining } from "@/lib/runAnalysis";
+import { analyze30Days, projectFromTraining, analyzePaceForRacePrediction } from "@/lib/runAnalysis";
 import { Countdown } from "@/components/Countdown";
 import { ProjectionMeter } from "@/components/ProjectionMeter";
 import { BetSplitBar } from "@/components/BetSplitBar";
@@ -21,6 +21,7 @@ import { ProjectionHistory } from "@/components/ProjectionHistory";
 import { DualProjections } from "@/components/DualProjections";
 import { PredictionTooltip } from "@/components/PredictionTooltip";
 import { SyncStravaButton } from "@/components/SyncStravaButton";
+import { PaceBasedProjection } from "@/components/PaceBasedProjection";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export default async function Home() {
   // Calculate secondary projection from 30-day training analysis
   const trainingAnalysis = analyze30Days(activities);
   const trainingProjectionSeconds = projectFromTraining(trainingAnalysis);
+
+  // Advanced pace-based prediction
+  const paceAnalysis = analyzePaceForRacePrediction(activities);
+  const sophProjectionSeconds = paceAnalysis ? paceAnalysis.finalPrediction : null;
 
   const tally = tallyBets(bets);
   const days = daysUntil(race.race_date);
@@ -182,6 +187,7 @@ export default async function Home() {
             trainingSeconds={Math.round(trainingProjectionSeconds ?? 0) || null}
             lineSeconds={race.line_seconds}
           />
+          <PaceBasedProjection analysis={paceAnalysis} lineSeconds={race.line_seconds} />
         </div>
         <BetSplitBar tally={tally} />
       </section>
