@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { formatDuration, formatPace } from '@/lib/format'
 import type { PaceAnalysis } from '@/lib/runAnalysis'
 
@@ -19,8 +20,13 @@ export function PaceBasedProjection({ analysis, lineSeconds }: { analysis: PaceA
 
   return (
     <div className="panel p-6 space-y-6">
-      <div>
+      <div className="flex items-center justify-between">
         <p className="eyebrow">Pace-based projection</p>
+        <Link href="/predictor" className="text-volt font-mono text-xs hover:underline">
+          full dashboard →
+        </Link>
+      </div>
+      <div>
         <div className="mt-4 space-y-3">
           <div className="flex items-end justify-between">
             <div>
