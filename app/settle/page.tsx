@@ -3,7 +3,6 @@ import { getRace, getBets, RACE_SLUG } from "@/lib/data";
 import { tallyBets } from "@/lib/stats";
 import { formatDuration } from "@/lib/format";
 import { SettleForm, SettingsForm, ReopenForm } from "@/components/SettleForms";
-import { SyncStravaButton } from "@/components/SyncStravaButton";
 import { Leaderboard } from "@/components/Leaderboard";
 
 export const dynamic = "force-dynamic";
@@ -77,10 +76,6 @@ export default async function SettlePage() {
       </div>
 
       <div className="rise" style={{ animationDelay: "0.12s" }}>
-        <SyncStravaButton />
-      </div>
-
-      <div className="rise" style={{ animationDelay: "0.18s" }}>
         <SettingsForm race={race} />
       </div>
     </div>

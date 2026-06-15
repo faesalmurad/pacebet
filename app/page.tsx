@@ -20,6 +20,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { ProjectionHistory } from "@/components/ProjectionHistory";
 import { DualProjections } from "@/components/DualProjections";
 import { PredictionTooltip } from "@/components/PredictionTooltip";
+import { SyncStravaButton } from "@/components/SyncStravaButton";
 
 export const dynamic = "force-dynamic";
 
@@ -239,6 +240,11 @@ export default async function Home() {
           sub="week streak"
           accent={longRunStreak > 0 ? "volt" : undefined}
         />
+      </section>
+
+      {/* SYNC */}
+      <section className="rise" style={{ animationDelay: "0.20s" }}>
+        <SyncStravaButton />
       </section>
 
       {/* CHART */}
