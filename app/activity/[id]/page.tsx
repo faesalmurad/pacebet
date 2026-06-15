@@ -102,7 +102,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Pace visualization */}
-      <PaceChart movingTimeS={activity.moving_time_s} distanceM={activity.distance_m} avgPaceSecPerMile={pace} />
+      <PaceChart splits={activity.splits} avgPaceSecPerMile={pace} />
     </div>
   )
 }

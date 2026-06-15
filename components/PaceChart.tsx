@@ -3,103 +3,162 @@
 import { formatPace } from '@/lib/format'
 
 interface PaceChartProps {
-  movingTimeS: number
-  distanceM: number
+  splits?: Array<{ mile: number; pace_sec_per_mile: number }>
   avgPaceSecPerMile: number
 }
 
-export function PaceChart({ movingTimeS, distanceM, avgPaceSecPerMile }: PaceChartProps) {
-  const miles = distanceM / 1609.34
-  const minutesPerMile = avgPaceSecPerMile / 60
-
-  // Estimate splits assuming slight fatigue curve (2-3% slowdown per mile)
-  const splits: number[] = []
-  for (let i = 0; i < Math.ceil(miles); i++) {
-    const fatigueMultiplier = 1 + i * 0.015
-    const splitPace = avgPaceSecPerMile * fatigueMultiplier
-    splits.push(splitPace)
+export function PaceChart({ splits, avgPaceSecPerMile }: PaceChartProps) {
+  // If we don't have actual splits, show a simple metric display
+  if (!splits || splits.length === 0) {
+    return (
+      <div className="panel p-6">
+        <p className="eyebrow mb-4">Pace data</p>
+        <p className="text-bone/80 text-sm">
+          Average pace: <span className="font-mono font-semibold">{formatPace(avgPaceSecPerMile)}</span>
+        </p>
+        <p className="text-muted text-xs mt-2">
+          Detailed splits available when synced from Strava with streams data
+        </p>
+      </div>
+    )
   }
 
-  const maxPace = Math.max(...splits)
-  const minPace = Math.min(...splits)
-  const paceRange = maxPace - minPace
+  const paces = splits.map((s) => s.pace_sec_per_mile)
+  const maxPace = Math.max(...paces)
+  const minPace = Math.min(...paces)
+  const paceRange = maxPace - minPace || 1
 
-  const chartHeight = 200
-  const chartPadding = 20
-  const chartWidth = 100
+  const svgWidth = 600
+  const svgHeight = 250
+  const padding = 50
 
-  // Normalize pace values to SVG coordinates
-  const normalizePace = (pace: number) => {
-    if (paceRange === 0) return chartHeight / 2
-    return chartHeight - ((pace - minPace) / paceRange) * (chartHeight - chartPadding * 2) - chartPadding
+  const normalize = (pace: number, isX: boolean) => {
+    if (isX) {
+      const mileIndex = splits.findIndex((s) => s.pace_sec_per_mile === pace)
+      return padding + (mileIndex / (splits.length - 1)) * (svgWidth - padding * 2)
+    }
+    return svgHeight - padding - ((pace - minPace) / paceRange) * (svgHeight - padding * 2)
   }
 
-  const points = splits
-    .slice(0, Math.ceil(miles))
-    .map((pace, i) => {
-      const x = (i / miles) * chartWidth
-      const y = normalizePace(pace)
-      return `${x},${y}`
-    })
-    .join(' ')
+  const points = splits.map((s, i) => {
+    const x = padding + (i / (splits.length - 1)) * (svgWidth - padding * 2)
+    const y = svgHeight - padding - ((s.pace_sec_per_mile - minPace) / paceRange) * (svgHeight - padding * 2)
+    return `${x},${y}`
+  })
 
   return (
     <div className="panel p-6 space-y-4">
       <div className="flex items-center justify-between">
         <p className="eyebrow">Pace throughout run</p>
-        <p className="text-sm text-muted">Estimated splits (assuming slight fatigue)</p>
+        <p className="text-sm text-muted">{splits.length} miles tracked</p>
       </div>
 
-      <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-        className="w-full h-40 bg-ink-3/50 rounded-lg"
-        preserveAspectRatio="none"
-      >
-        {/* Grid lines */}
-        <line x1="0" y1={normalizePace(avgPaceSecPerMile)} x2={chartWidth} y2={normalizePace(avgPaceSecPerMile)} stroke="currentColor" strokeWidth="0.5" opacity="0.2" className="text-bone" />
+      {/* Chart */}
+      <div className="overflow-x-auto bg-ink-3/50 rounded-lg p-4">
+        <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-full h-48">
+          {/* Y-axis label */}
+          <text x="15" y="20" fontSize="12" fill="currentColor" className="text-muted">
+            {formatPace(maxPace)}
+          </text>
+          <text x="15" y={svgHeight - 10} fontSize="12" fill="currentColor" className="text-muted">
+            {formatPace(minPace)}
+          </text>
 
-        {/* Pace line */}
-        <polyline
-          points={points}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          className="text-volt"
-        />
+          {/* Y-axis line */}
+          <line
+            x1={padding}
+            y1={padding}
+            x2={padding}
+            y2={svgHeight - padding}
+            stroke="currentColor"
+            strokeWidth="1"
+            opacity="0.3"
+            className="text-bone"
+          />
 
-        {/* Area fill */}
-        <polygon
-          points={`0,${chartHeight} ${points} ${chartWidth},${chartHeight}`}
-          fill="currentColor"
-          fillOpacity="0.1"
-          className="text-volt"
-        />
-      </svg>
+          {/* X-axis line */}
+          <line
+            x1={padding}
+            y1={svgHeight - padding}
+            x2={svgWidth - padding}
+            y2={svgHeight - padding}
+            stroke="currentColor"
+            strokeWidth="1"
+            opacity="0.3"
+            className="text-bone"
+          />
+
+          {/* X-axis labels (every other mile) */}
+          {splits.map((s, i) => {
+            if (i % Math.max(1, Math.floor(splits.length / 5)) !== 0) return null
+            const x = padding + (i / (splits.length - 1)) * (svgWidth - padding * 2)
+            return (
+              <text key={`label-${i}`} x={x} y={svgHeight - 20} fontSize="12" textAnchor="middle" fill="currentColor" className="text-muted">
+                {s.mile}
+              </text>
+            )
+          })}
+
+          {/* Average pace line */}
+          <line
+            x1={padding}
+            y1={svgHeight - padding - ((avgPaceSecPerMile - minPace) / paceRange) * (svgHeight - padding * 2)}
+            x2={svgWidth - padding}
+            y2={svgHeight - padding - ((avgPaceSecPerMile - minPace) / paceRange) * (svgHeight - padding * 2)}
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeDasharray="4"
+            opacity="0.2"
+            className="text-volt"
+          />
+
+          {/* Area fill */}
+          <polygon
+            points={`${padding},${svgHeight - padding} ${points.join(' ')} ${svgWidth - padding},${svgHeight - padding}`}
+            fill="currentColor"
+            fillOpacity="0.1"
+            className="text-volt"
+          />
+
+          {/* Pace line */}
+          <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="2" className="text-volt" />
+
+          {/* Data points */}
+          {splits.map((s, i) => {
+            const x = padding + (i / (splits.length - 1)) * (svgWidth - padding * 2)
+            const y = svgHeight - padding - ((s.pace_sec_per_mile - minPace) / paceRange) * (svgHeight - padding * 2)
+            return <circle key={`dot-${i}`} cx={x} cy={y} r="3" fill="currentColor" className="text-volt" />
+          })}
+        </svg>
+      </div>
+
+      {/* Y-axis label */}
+      <p className="text-xs text-muted text-center">Miles →</p>
 
       {/* Split details */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <p className="text-xs text-muted mb-1">Fastest mile</p>
+          <p className="text-xs text-muted mb-1">Fastest</p>
           <p className="font-mono font-semibold">{formatPace(minPace)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted mb-1">Average pace</p>
+          <p className="text-xs text-muted mb-1">Average</p>
           <p className="font-mono font-semibold">{formatPace(avgPaceSecPerMile)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted mb-1">Slowest mile</p>
+          <p className="text-xs text-muted mb-1">Slowest</p>
           <p className="font-mono font-semibold">{formatPace(maxPace)}</p>
         </div>
       </div>
 
       {/* Mile splits table */}
-      <div className="mt-6 border-t border-line pt-4">
-        <p className="eyebrow text-sm mb-3">Mile-by-mile splits</p>
-        <div className="grid grid-cols-auto gap-2 text-xs">
-          {splits.slice(0, Math.ceil(miles)).map((pace, i) => (
-            <div key={i} className="flex items-center gap-3 py-1.5 px-2 bg-ink-3/50 rounded">
-              <span className="font-semibold text-volt w-6">Mile {i + 1}</span>
-              <span className="font-mono text-muted">{formatPace(pace)}</span>
+      <div className="border-t border-line pt-4">
+        <p className="eyebrow text-sm mb-3">All splits</p>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 text-xs max-h-48 overflow-y-auto">
+          {splits.map((s) => (
+            <div key={s.mile} className="flex items-center gap-2 py-1.5 px-2 bg-ink-3/50 rounded">
+              <span className="font-semibold text-volt">{s.mile}m</span>
+              <span className="font-mono text-muted">{formatPace(s.pace_sec_per_mile)}</span>
             </div>
           ))}
         </div>

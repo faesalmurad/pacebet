@@ -36,4 +36,5 @@ export interface Activity {
   source: string // 'mock' for now, 'strava' once wired up
   external_id: string | null
   created_at: string
+  splits?: Array<{ mile: number; pace_sec_per_mile: number }> // from Strava streams
 }

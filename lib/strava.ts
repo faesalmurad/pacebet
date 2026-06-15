@@ -39,13 +39,18 @@ export function isStravaConfigured(): boolean {
   )
 }
 
+export interface Split {
+  mile: number
+  pace_sec_per_mile: number
+}
+
 export interface NormalizedRun {
   external_id: string
   activity_date: string // YYYY-MM-DD
   name: string
   distance_m: number
   moving_time_s: number
-  splits?: Array<{ distance_m: number; time_s: number; pace_sec_per_mile: number }>
+  splits?: Split[] // pace data at mile intervals
   peak_pace_sec_per_mile?: number
   avg_pace_sec_per_mile?: number
 }
@@ -110,14 +115,35 @@ export async function fetchStravaRuns(): Promise<NormalizedRun[]> {
           const distances = streams.distance.data as number[]
           const velocities = streams.velocity_smooth.data as number[]
 
-          // Calculate pace data from streams
-          const paces = velocities.map((v) => (v > 0 ? METERS_PER_MILE / v : Infinity))
-          const validPaces = paces.filter((p) => isFinite(p))
+          // Calculate mile splits from streams
+          const splits: Split[] = []
+          let currentMile = 0
+          let lastIdx = 0
 
-          if (validPaces.length > 0) {
-            normalized.peak_pace_sec_per_mile = Math.min(...validPaces)
-            normalized.avg_pace_sec_per_mile =
-              validPaces.reduce((a, b) => a + b, 0) / validPaces.length
+          for (let m = 1; m <= Math.floor(normalized.distance_m / METERS_PER_MILE); m++) {
+            const targetDistance = m * METERS_PER_MILE
+            // Find index closest to this distance
+            let closest = lastIdx
+            for (let i = lastIdx; i < distances.length; i++) {
+              if (Math.abs(distances[i] - targetDistance) < Math.abs(distances[closest] - targetDistance)) {
+                closest = i
+              }
+              if (distances[i] > targetDistance) break
+            }
+
+            const v = velocities[closest] ?? 0
+            const pace = v > 0 ? METERS_PER_MILE / v : 0
+            if (pace > 0) {
+              splits.push({ mile: m, pace_sec_per_mile: pace })
+            }
+            lastIdx = closest
+          }
+
+          if (splits.length > 0) {
+            normalized.splits = splits
+            const allPaces = splits.map((s) => s.pace_sec_per_mile)
+            normalized.peak_pace_sec_per_mile = Math.min(...allPaces)
+            normalized.avg_pace_sec_per_mile = allPaces.reduce((a, b) => a + b, 0) / allPaces.length
           }
         }
       }
