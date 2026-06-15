@@ -156,10 +156,15 @@ export async function deleteBet(formData: FormData): Promise<void> {
   const betId = String(formData.get('bet_id') ?? '')
   if (!betId) return
 
-  const { error } = await supabasePublic()
+  const { error } = await supabaseAdmin()
     .from('wager_bets')
     .delete()
     .eq('id', betId)
+
+  if (error) {
+    console.error('Delete bet error:', error)
+    return
+  }
 
   revalidateAll()
 }
