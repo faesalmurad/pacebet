@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { getRace, getActivities, RACE_SLUG } from '@/lib/data'
 import { analyzePaceForRacePrediction } from '@/lib/runAnalysis'
 import { formatDuration, formatPace, formatMiles, paceSecPerMile } from '@/lib/format'
-import { PredictorChart } from '@/components/PredictorChart'
+import { getProjectionHistory } from '@/lib/snapshots'
+import { PredictionTrendChart } from '@/components/PredictionTrendChart'
 import { PaceMetrics } from '@/components/PaceMetrics'
 
 export const dynamic = 'force-dynamic'
@@ -20,7 +21,10 @@ export default async function PredictorPage() {
     )
   }
 
-  const activities = await getActivities(race.id)
+  const [activities, projectionHistory] = await Promise.all([
+    getActivities(race.id),
+    getProjectionHistory(race.id),
+  ])
   const analysis = analyzePaceForRacePrediction(activities)
 
   if (!analysis) {
@@ -114,8 +118,8 @@ export default async function PredictorPage() {
         </div>
       </div>
 
-      {/* PACE TREND CHART */}
-      <PredictorChart paces={analysis.paces} />
+      {/* PREDICTION TREND CHART */}
+      <PredictionTrendChart history={projectionHistory} lineSeconds={race.line_seconds} />
 
       {/* KEY METRICS GRID */}
       <PaceMetrics analysis={analysis} />
