@@ -19,6 +19,7 @@ import { RecentRuns } from "@/components/RecentRuns";
 import { Leaderboard } from "@/components/Leaderboard";
 import { ProjectionHistory } from "@/components/ProjectionHistory";
 import { DualProjections } from "@/components/DualProjections";
+import { PredictionTooltip } from "@/components/PredictionTooltip";
 
 export const dynamic = "force-dynamic";
 
@@ -185,6 +186,10 @@ export default async function Home() {
             snapshots={projectionHistory}
             lineSeconds={race.line_seconds}
           />
+          <div className="flex items-start justify-between">
+            <h3 className="eyebrow">Dual analysis</h3>
+            <PredictionTooltip />
+          </div>
           <DualProjections
             riegelSeconds={projection.seconds}
             trainingSeconds={Math.round(trainingProjectionSeconds ?? 0) || null}

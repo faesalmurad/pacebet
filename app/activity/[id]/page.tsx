@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getRace, getActivities, RACE_SLUG } from '@/lib/data'
 import { formatDuration, formatMiles, formatPace, paceSecPerMile } from '@/lib/format'
-import { runAnalysis } from '@/lib/runAnalysis'
+import { PaceChart } from '@/components/PaceChart'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +26,6 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
 
   const pace = paceSecPerMile(activity.distance_m, activity.moving_time_s)
   const runType = detectRunType(activity.name)
-  const analysis = runAnalysis(activities)
 
   // Calculate contribution to projection
   const marathonDistance = 42195 // meters
@@ -78,47 +77,32 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
 
       {/* Contribution to Projection */}
       <div className="panel p-6 mt-8">
-        <p className="eyebrow mb-4">Contribution to Marathon Projection</p>
-        <div className="space-y-3 text-bone/80">
-          <p>
-            At {formatPace(pace)} per mile, this {formatMiles(activity.distance_m)}-mile run suggests
-            a marathon finish time of <span className="text-volt font-mono">{formatDuration(projectedFinish)}</span>.
-          </p>
-          <p className="text-sm text-muted">
-            The actual projection uses a 30-day rolling average of all runs (weighted by intensity) to account
-            for training trends, not any single workout.
-          </p>
+        <p className="eyebrow mb-4">Effort & Fitness Impact</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-ink-3/50 p-4 rounded-lg">
+            <p className="text-xs text-muted mb-1">Projected finish</p>
+            <p className="font-display text-2xl font-mono text-volt">{formatDuration(projectedFinish)}</p>
+            <p className="text-[0.65rem] text-muted mt-1">at this pace</p>
+          </div>
+          <div className="bg-ink-3/50 p-4 rounded-lg">
+            <p className="text-xs text-muted mb-1">Elevation gain</p>
+            <p className="font-display text-2xl">—</p>
+            <p className="text-[0.65rem] text-muted mt-1">not available</p>
+          </div>
+          <div className="bg-ink-3/50 p-4 rounded-lg">
+            <p className="text-xs text-muted mb-1">Effort level</p>
+            <p className="font-display text-2xl text-amber">{getEffortLevel(pace)}</p>
+            <p className="text-[0.65rem] text-muted mt-1">estimated</p>
+          </div>
         </div>
+        <p className="text-sm text-bone/80">
+          This {runType} ({formatMiles(activity.distance_m)} miles at {formatPace(pace)}/mi) contributes to your overall fitness through its
+          classification. The marathon projection uses a 30-day rolling average weighted by intensity, not single workouts.
+        </p>
       </div>
 
-      {/* How Predictions Work */}
-      <div className="panel p-6 mt-8 border border-volt/20">
-        <p className="eyebrow mb-4 text-volt">How We Predict</p>
-        <div className="space-y-4 text-sm text-bone/80">
-          <div>
-            <p className="font-semibold mb-1">The Riegel Formula</p>
-            <p className="text-muted text-xs font-mono mb-2">T₂ = T₁ × (D₂/D₁)^1.06</p>
-            <p>
-              We take your longest run time and scale it to marathon distance. This assumes training
-              effort maintains across distances with a 1.06 exponent for fatigue.
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold mb-1">The 30-Day Training Analysis</p>
-            <p>
-              We classify runs by type (long, tempo, interval, easy, recovery) and weight them by intensity.
-              This rolling 30-day score estimates your current aerobic fitness and sustainable marathon pace.
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold mb-1">Two Estimates, One Picture</p>
-            <p>
-              We show both approaches and their midpoint. The Riegel formula is stable but can lag fitness
-              improvements; the training-based estimate responds faster to intensity but needs context.
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Pace visualization */}
+      <PaceChart movingTimeS={activity.moving_time_s} distanceM={activity.distance_m} avgPaceSecPerMile={pace} />
     </div>
   )
 }
@@ -143,4 +127,13 @@ function getRunTypeExplanation(type: string): string {
     'easy run': 'Easy runs build base fitness without stress. The bulk of marathon training happens at easy pace.',
   }
   return explanations[type] || 'A training run that contributes to your overall fitness.'
+}
+
+function getEffortLevel(paceSecPerMile: number): string {
+  const pace = paceSecPerMile / 60 // convert to min/mile
+  if (pace < 7) return 'Hard'
+  if (pace < 8) return 'Tempo'
+  if (pace < 9) return 'Moderate'
+  if (pace < 10) return 'Easy'
+  return 'Recovery'
 }
