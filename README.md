@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏁 PaceBet
 
-## Getting Started
+A friendly marathon wager board. Friends bet **over/under** on your finish time
+while training progress rolls in. Built for fun — not scale, not Fort Knox.
 
-First, run the development server:
+**Live:** https://pacebet.vercel.app
+
+## How it works
+
+- **Board** (`/`) — the line, a live countdown to gun time, a Riegel-formula
+  projected finish, weekly mileage, recent runs, and the current over/under split.
+- **Place a bet** (`/bets`) — friends enter a name, pick over/under, add an
+  optional stake + trash talk. No login.
+- **Settle** (`/settle`) — you enter the official finish time to close the book
+  and crown winners. Passphrase-gated.
+
+## Controls you'll want
+
+- **Change the runner name, race, date, or the line:** go to `/settle` →
+  *Race settings*, enter the passphrase, save. (The runner currently defaults to
+  "Fae" — change it there.)
+- **Passphrase:** set by `SETTLE_PASSPHRASE` (default `letsgo`). Change it in
+  Vercel → Project → Settings → Environment Variables, then redeploy.
+- **Settle the race:** `/settle` → enter finish time like `3:58:21` + passphrase.
+  Got it wrong? *Reopen betting* clears the result.
+
+## Data
+
+Stored in Supabase (the existing **nestmate** project), in tables prefixed
+`wager_` so they stay clearly separate:
+
+- `wager_races` — the race + the over/under line + the result
+- `wager_bets` — everyone's picks
+- `wager_activities` — training runs (currently seeded mock data)
+
+Env vars live in `.env.local` (and on Vercel). The service-role key is used only
+server-side to settle the race and edit settings.
+
+## Strava (when you're ready)
+
+Training runs read from `wager_activities`, seeded with realistic mock data so
+the board looks alive today. Wiring real Strava means populating that same table
+from the Strava API — **no UI changes needed**. The full plan lives in
+[`lib/strava.ts`](./lib/strava.ts): create a Strava app, set
+`STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` / `STRAVA_REFRESH_TOKEN`, implement
+`fetchStravaRuns()`, and upsert runs into `wager_activities` (source `'strava'`)
+on a cron.
+
+## Local dev
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev      # http://localhost:3000
+npm run build    # production build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Stack: Next.js 16 (App Router) · React 19 · Tailwind v4 · Supabase · Zod.

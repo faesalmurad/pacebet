@@ -1,26 +1,245 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* ---- PaceBet design tokens : race-night sportsbook ---- */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: #0a0b0d;
+  --color-ink-2: #101216;
+  --color-ink-3: #171a20;
+  --color-line: rgba(244, 241, 234, 0.09);
+  --color-line-strong: rgba(244, 241, 234, 0.18);
+  --color-bone: #f4f1ea;
+  --color-muted: #888f99;
+  --color-volt: #c6ff3a; /* UNDER / GO */
+  --color-volt-dim: #97c41f;
+  --color-coral: #ff5436; /* OVER / FADE */
+  --color-coral-dim: #c93c25;
+  --color-amber: #ffb020;
+
+  --font-display: var(--font-anton);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-dm-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--color-line);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: var(--color-bone);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Atmospheric backdrop: stadium glow + grain, fixed behind everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(120% 80% at 80% -10%, rgba(198, 255, 58, 0.10), transparent 55%),
+    radial-gradient(100% 70% at 0% 110%, rgba(255, 84, 54, 0.10), transparent 55%),
+    var(--color-ink);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* Display headlines: condensed athletic poster */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Surfaces */
+.panel {
+  background-color: var(--color-ink-2);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+.panel-raised {
+  background-color: var(--color-ink-3);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+/* Eyebrow / label */
+.eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.66rem;
+  color: var(--color-muted);
+}
+
+/* Lane lines — running track texture for accents */
+.lane-lines {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-line) 0 1px,
+    transparent 1px 14px
+  );
+}
+
+/* Checkered finish-line strip */
+.checker {
+  background-image:
+    linear-gradient(45deg, var(--color-bone) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-bone) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-bone) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-bone) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+}
+
+/* Glow helpers */
+.glow-volt {
+  box-shadow: 0 0 0 1px rgba(198, 255, 58, 0.35), 0 0 40px -8px rgba(198, 255, 58, 0.5);
+}
+.glow-coral {
+  box-shadow: 0 0 0 1px rgba(255, 84, 54, 0.35), 0 0 40px -8px rgba(255, 84, 54, 0.5);
+}
+.text-glow-volt {
+  text-shadow: 0 0 22px rgba(198, 255, 58, 0.55);
+}
+.text-glow-coral {
+  text-shadow: 0 0 22px rgba(255, 84, 54, 0.55);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.8rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-ink-3);
+  color: var(--color-bone);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-bone);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn-primary {
+  background: var(--color-volt);
+  color: #0a0b0d;
+  border-color: var(--color-volt);
+  font-weight: 700;
+}
+.btn-primary:hover {
+  box-shadow: 0 0 36px -8px rgba(198, 255, 58, 0.7);
+  border-color: var(--color-volt);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Inputs */
+.field {
+  width: 100%;
+  background: var(--color-ink);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  color: var(--color-bone);
+  font-family: var(--font-sans);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field:focus {
+  outline: none;
+  border-color: var(--color-volt);
+  box-shadow: 0 0 0 3px rgba(198, 255, 58, 0.15);
+}
+.field::placeholder {
+  color: var(--color-muted);
+}
+
+/* Animations */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  opacity: 0;
+  animation: rise 0.62s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+@keyframes ping-soft {
+  0% {
+    box-shadow: 0 0 0 0 rgba(198, 255, 58, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(198, 255, 58, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(198, 255, 58, 0);
+  }
+}
+.live-dot {
+  animation: ping-soft 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .live-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+::selection {
+  background: var(--color-volt);
+  color: #0a0b0d;
+}
+
+/* Slim scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-3);
+  border-radius: 8px;
+  border: 2px solid var(--color-ink);
 }
