@@ -78,10 +78,6 @@ export default async function SettlePage() {
       <div className="rise" style={{ animationDelay: "0.12s" }}>
         <SettingsForm race={race} />
       </div>
-
-      <p className="text-xs text-muted font-mono text-center">
-        Settling and settings are gated by the SETTLE_PASSPHRASE env var.
-      </p>
     </div>
   );
 }
