@@ -25,23 +25,74 @@ interface ThirtyDayAnalysis {
 }
 
 /** Detect run type from name and pace characteristics. */
-export function classifyRun(activity: Activity, avgPace?: number): RunClassification {
+export function classifyRun(activity: Activity, avgPace?: number, recentEasyPace?: number): RunClassification {
   const name = activity.name.toLowerCase()
   const miles = metersToMiles(Number(activity.distance_m))
   const pace = avgPace ?? paceSecPerMile(Number(activity.distance_m), activity.moving_time_s)
 
-  // Parse name for explicit type hints
+  // Strong name-based indicators (high confidence)
   if (name.includes('long')) return { type: 'long', intensity: 35 }
-  if (name.includes('tempo')) return { type: 'tempo', intensity: 75 }
-  if (name.includes('interval') || name.includes('workout')) return { type: 'interval', intensity: 90 }
-  if (name.includes('recovery')) return { type: 'recovery', intensity: 20 }
+  if (
+    name.includes('recovery') ||
+    name.includes('easy') ||
+    name.includes('shakeout') ||
+    name.includes('cooldown')
+  )
+    return { type: 'recovery', intensity: 20 }
 
-  // Heuristic: classify by distance + pace
-  const thresholdPace = 480 // ~8:00/mi (example threshold)
-  if (miles >= 10) return { type: 'long', intensity: 40 }
-  if (pace < thresholdPace - 30) return { type: 'interval', intensity: 85 } // significantly faster
-  if (pace < thresholdPace + 30) return { type: 'tempo', intensity: 70 }
-  if (pace > thresholdPace + 120) return { type: 'recovery', intensity: 25 }
+  // Tempo/threshold indicators
+  if (
+    name.includes('tempo') ||
+    name.includes('threshold') ||
+    name.includes('t-pace') ||
+    name.includes('race pace') ||
+    name.includes('steady')
+  )
+    return { type: 'tempo', intensity: 75 }
+
+  // Interval/speed work indicators
+  if (
+    name.includes('interval') ||
+    name.includes('workout') ||
+    name.includes('speed') ||
+    name.includes('repeats') ||
+    name.includes('fartlek') ||
+    name.includes('hill') ||
+    name.includes('lactate') ||
+    name.includes('vo2') ||
+    name.includes('800') ||
+    name.includes('400') ||
+    name.includes('mile repeat')
+  )
+    return { type: 'interval', intensity: 90 }
+
+  // Pace-based fallback classification
+  // Use runner's typical easy pace if available, otherwise estimate
+  const baseEasyPace = recentEasyPace ?? 540 // ~9:00/mi default
+  const thresholdPace = baseEasyPace - 60 // ~1 min/mi faster than easy
+  const speedPace = baseEasyPace - 120 // ~2 min/mi faster than easy
+
+  // Long runs are 10+ miles at easy pace
+  if (miles >= 10 && pace > baseEasyPace - 30) {
+    return { type: 'long', intensity: 40 }
+  }
+
+  // Intervals: significantly faster (>2min/mi faster)
+  if (pace < speedPace - 20) {
+    return { type: 'interval', intensity: 85 }
+  }
+
+  // Tempo: moderately fast (~1-2 min/mi faster)
+  if (pace < thresholdPace + 30) {
+    return { type: 'tempo', intensity: 70 }
+  }
+
+  // Recovery: significantly slower than easy
+  if (pace > baseEasyPace + 120) {
+    return { type: 'recovery', intensity: 25 }
+  }
+
+  // Default to easy
   return { type: 'easy', intensity: 50 }
 }
 
@@ -83,10 +134,26 @@ export function analyze30Days(
   const totalTime = recent.reduce((s, a) => s + a.moving_time_s, 0)
   const avgPace = totalMeters > 0 ? paceSecPerMile(totalMeters, totalTime) : 0
 
-  // Classify each run
+  // First pass: classify with avgPace to get initial types
+  const preliminaryClassified = recent.map((a) => ({
+    activity: a,
+    pace: paceSecPerMile(Number(a.distance_m), a.moving_time_s),
+    preliminaryType: classifyRun(a, undefined, undefined).type,
+  }))
+
+  // Calculate easy pace from easy runs only
+  const easyRuns = preliminaryClassified.filter((c) => c.preliminaryType === 'easy')
+  let easyPace = avgPace
+  if (easyRuns.length > 0) {
+    const easyMeters = easyRuns.reduce((s, r) => s + r.activity.distance_m, 0)
+    const easyTime = easyRuns.reduce((s, r) => s + r.activity.moving_time_s, 0)
+    easyPace = paceSecPerMile(easyMeters, easyTime)
+  }
+
+  // Second pass: classify with proper easy pace baseline
   const classified = recent.map((a) => ({
     activity: a,
-    classification: classifyRun(a, avgPace),
+    classification: classifyRun(a, undefined, easyPace),
     miles: metersToMiles(Number(a.distance_m)),
     pace: paceSecPerMile(Number(a.distance_m), a.moving_time_s),
   }))
@@ -222,12 +289,28 @@ export function analyzePaceForRacePrediction(
 
   if (recent30.length === 0) return null
 
-  // Extract pace data with dates
+  // Calculate easy pace baseline for classification
+  const preliminaryData = recent30.map((a) => ({
+    activity: a,
+    pace: paceSecPerMile(a.distance_m, a.moving_time_s),
+    miles: metersToMiles(a.distance_m),
+    preliminaryType: classifyRun(a).type,
+  }))
+
+  const easyRuns = preliminaryData.filter((d) => d.preliminaryType === 'easy')
+  let easyPaceBaseline = 540 // default ~9:00/mi
+  if (easyRuns.length > 0) {
+    const totalEasyMeters = easyRuns.reduce((s, d) => s + d.activity.distance_m, 0)
+    const totalEasyTime = easyRuns.reduce((s, d) => s + d.activity.moving_time_s, 0)
+    easyPaceBaseline = paceSecPerMile(totalEasyMeters, totalEasyTime)
+  }
+
+  // Extract pace data with proper classification
   const paceData = recent30.map((a) => ({
     date: a.activity_date,
     pace: paceSecPerMile(a.distance_m, a.moving_time_s),
     miles: metersToMiles(a.distance_m),
-    type: classifyRun(a).type,
+    type: classifyRun(a, undefined, easyPaceBaseline).type,
   }))
 
   // Split into recent and older periods
@@ -272,9 +355,10 @@ export function analyzePaceForRacePrediction(
     recentVol > olderVol * 1.1 ? 'increasing' : recentVol < olderVol * 0.9 ? 'decreasing' : 'stable'
 
   // Training stress (intensity-weighted volume)
-  const stressScore = paceData.reduce((s, p) => {
-    const intensity = classifyRun({ distance_m: 0, moving_time_s: 0, name: '', activity_date: '', source: '', id: '', race_id: null, external_id: null, created_at: '' }, p.pace).intensity
-    return s + (p.miles * intensity / 100)
+  const stressScore = recent30.reduce((s, a) => {
+    const intensity = classifyRun(a, undefined, easyPaceBaseline).intensity
+    const miles = metersToMiles(a.distance_m)
+    return s + (miles * intensity / 100)
   }, 0)
   const trainingStress = Math.min(100, (stressScore / (paceData.length || 1)) * 10)
 
