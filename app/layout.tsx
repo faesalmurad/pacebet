@@ -21,9 +21,12 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PaceBet — the line on the marathon",
+  title: "PaceBet — race day projections",
   description:
-    "A friendly wager board: bet over/under on the marathon finish time and watch training progress roll in.",
+    "A friendly wager board: friends predict your marathon finish time and watch training progress roll in.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -39,14 +42,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Nav />
         <main className="flex-1">{children}</main>
-        <footer className="mt-20 border-t border-line">
-          <div className="mx-auto max-w-6xl px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="eyebrow">PaceBet · friendly wagers, no bookie</p>
-            <p className="text-xs text-muted">
-              Training data is mock for now — Strava-ready when you are.
-            </p>
-          </div>
-        </footer>
       </body>
     </html>
   );

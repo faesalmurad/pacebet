@@ -114,20 +114,6 @@ export default async function Home() {
             <p className="text-muted mt-3">
               {race.race_name} · {formatFullDate(race.race_date)}
             </p>
-
-            <div className="mt-8 flex flex-wrap items-end gap-x-10 gap-y-4">
-              <div>
-                <p className="eyebrow">The line</p>
-                <p className="font-display text-6xl sm:text-7xl tabular mt-1">
-                  {lineLabel}
-                </p>
-              </div>
-              <p className="text-sm text-muted max-w-[14rem] mb-2">
-                Bet whether the finish lands{" "}
-                <span className="text-volt">under</span> or{" "}
-                <span className="text-coral">over</span> that mark.
-              </p>
-            </div>
           </div>
 
           {/* Right: countdown or result */}
